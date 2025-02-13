@@ -11,22 +11,15 @@ class vec {
 	['*'] = (s) => new vec(this.x * s, this.y * s, this.z * s, this.w * s);
 }
 
-function length(v) {
-	return Math.sqrt(dot(v, v));
-}
+const length = (v) => Math.sqrt(dot(v, v));
 
-function dot(a, b) {
-	return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
-}
+const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 
-function cross(x, y) {
-	return new vec(
-		x.y * y.z - y.y * x.z,
-		x.z * y.x - y.z * x.x,
-		x.x * y.y - y.x * x.y,
-		0,
-	);
-}
+const cross = (x, y) => new vec(
+	x.y * y.z - y.y * x.z,
+	x.z * y.x - y.z * x.x,
+	x.x * y.y - y.x * x.y,
+);
 
 function normalize(v) {
 	const s = length(v);
@@ -123,7 +116,7 @@ function lookAtRH(eye, center, up) {
 function perspectiveRH_NO(fovy, aspect, zNear, zFar) {
 	const tanHalfFovy = Math.tan(fovy / 2);
 	const Result = new mat();
-	Result.m[0].x = 1 / aspect * tanHalfFovy;
+	Result.m[0].x = 1 / (aspect * tanHalfFovy);
 	Result.m[1].y = 1 / tanHalfFovy;
 	Result.m[2].z = -(zFar + zNear) / (zFar - zNear);
 	Result.m[2].w = -1;
@@ -185,27 +178,83 @@ class camera {
 }
 
 class viewport {
-	constructor(width = 38, height = 9, fovy = Math.PI * 0.1, aspect = 0.011) {
+	#width = 38;
+	#height = 9;
+	#fovy = Math.PI * 0.1;
+	#aspect = 0.4;
+
+	constructor(width = 38, height = 9, fovy = Math.PI * 0.1, aspect = 0.4) {
 		this.width = width;
 		this.height = height;
+
+		this.fovy = fovy;
 		this.aspect = aspect;
-		this.delta = 2 / Math.max(this.width, this.height);
-
-		this.buffer = new Array(height)
-			.fill(new Array(width).fill(' '))
-			.map((row) =>
-				row.map((column) =>
-					new vec(column, 0, 1, ' ')));
-
-		const angle = Math.PI * (Date.now() % 100000) / 50000;
-		this.camera = new camera(6, new vec(2 * angle, angle), fovy, width * aspect / height);
+		this.clear();
 	}
 
-	render() {
-		const vertices = cube.vertices.map(this.camera['*']);
+	get width() {
+		return this.#width;
+	}
 
-		cube.elements.forEach(({ x, y, z, w }) => this.triangle(
-			vertices[x], vertices[y], vertices[z], w));
+	set width(width = 38) {
+		this.#width = Math.max(1, parseInt(width) || 1);
+	}
+
+	get height() {
+		return this.#height;
+	}
+
+	set height(height = 9) {
+		this.#height = Math.max(1, parseInt(height) || 1);
+	}
+
+	get delta() {
+		return 2 / Math.max(this.#width, this.#height);
+	}
+
+	get fovy() {
+		return this.#fovy;
+	}
+
+	set fovy(fovy = Math.PI * 0.1) {
+		if (fovy > 0 && fovy < Math.PI) {
+			this.#fovy = Number(fovy);
+		} else {
+			this.#fovy = Math.PI * 0.1;
+		}
+	}
+
+	get aspect() {
+		return this.#aspect;
+	}
+
+	set aspect(aspect = 0.4) {
+		if (isFinite(aspect) && aspect > 0) {
+			this.#aspect = Number(aspect);
+		} else {
+			this.#aspect = 0.4;
+		}
+	}
+
+	static camera = ({ width, height, fovy, aspect }) => {
+		const angle = Math.PI * (Date.now() % 100000) / 50000;
+		return new camera(6, new vec(2 * angle, angle), fovy, width * aspect / height);
+	};
+
+	clear(w = ' ') {
+		this.buffer = new Array(this.height)
+			.fill(new Array(this.width).fill(w))
+			.map((row) =>
+				row.map(() => new vec(0, 0, 1, w)));
+
+		this.camera = viewport.camera(this);
+	}
+
+	render = ({ vertices, elements }) => {
+		const v = vertices.map(this.camera['*']);
+
+		elements.forEach(({ x, y, z, w }) =>
+			this.triangle(v[x], v[y], v[z], w));
 	}
 
 	triangle(a, b, c, w) {
@@ -254,9 +303,19 @@ class viewport {
 	}
 }
 
+const view = new viewport();
+const geometry = [cube];
+
+const push = ({ vertices, elements }, model) => geometry.push({
+	vertices: vertices.map(model['*']),
+	elements,
+});
+
+const pop = () => geometry.pop();
+
 function main() {
-	const view = new viewport();
-	view.render();
+	view.clear();
+	geometry.forEach(view.render);
 	view.log();
 }
 
