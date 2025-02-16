@@ -237,7 +237,7 @@ class viewport {
 	}
 
 	static camera = ({ width, height, fovy, aspect }) => {
-		const angle = Math.PI * (Date.now() % 100000) / 50000;
+		const angle = (Date.now() % 20000) / 10000;
 		return new camera(6, new vec(2 * angle, angle), fovy, width * aspect / height);
 	};
 
@@ -257,39 +257,38 @@ class viewport {
 			this.triangle(v[x], v[y], v[z], w));
 	}
 
-	triangle(a, b, c, w) {
-		const u = b['-'](a);
-		const v = c['-'](a);
-		const d = length(u);
-		const e = length(v);
+	triangle(A, B, C, w) {
+		const u = B['-'](A);
+		const v = C['-'](A);
+		const b = length(u);
+		const c = length(v);
 
-		if (d > 0 && e > 0) {
-			const f = Math.min(this.delta, this.delta / d);
-			const g = Math.min(this.delta, this.delta / e);
+		if (b > 0 && c > 0) {
+			const dy1 = Math.min(1, this.delta / b);
+			const dy2 = Math.min(1, this.delta / c);
 
-			const m = u['*'](f);
-			const n = v['*'](g);
+			const du = u['*'](dy1);
+			const dv = v['*'](dy2);
 
-			let q = new vec();
-			for (let i = 0; i < 1; i += f) {
-				let r = a['+'](q);
-				for (let j = 0; i + j < 1; j += g) {
-					const { x, y, z } = r;
+			let U = A;
+			for (let y1 = 0; y1 <= 1; y1 += dy1) {
+				let V = U;
+				for (let y2 = 0; y1 + y2 <= 1; y2 += dy2) {
+					const { x, y, z } = V;
 
 					if (Math.abs(z) <= 1) {
 						const row = parseInt(this.height * (1 - y) * 0.5);
 						const column = parseInt(this.width * (x + 1) * 0.5);
 
 						if (row >= 0 && row < this.height && column >= 0 && column < this.width && this.buffer[row][column].z >= z) {
-							this.buffer[row][column].z = z;
-							this.buffer[row][column].w = w;
+							this.buffer[row][column] = new vec(x, y, z, w);
 						}
 					}
 
-					r = r['+'](n);
+					V = V['+'](dv);
 				}
 
-				q = q['+'](m);
+				U = U['+'](du);
 			}
 		}
 	}
